@@ -77,6 +77,8 @@ SYSTEM_MODE(AUTOMATIC);
 /*******************************************************************************
  * changes in version 0.01:
        * Initial version
+ * changes in version 0.02:
+       * logic is working now
 *******************************************************************************/
 
 // Argentina time zone GMT-3
@@ -570,6 +572,16 @@ void idleEnterFunction()
 {
   // set the new state and publish the change
   setState(STATE_IDLE, true);
+
+  // clear scheduled off commands
+  turnOffRelay1AfterTime = 0;
+  turnOffRelay2AfterTime = 0;
+  turnOffRelay3AfterTime = 0;
+  turnOffRelay4AfterTime = 0;
+
+  // reset relay 1 and 2 in case the user turned them on
+  turnOffRelay(1);
+  turnOffRelay(2);
 }
 void idleUpdateFunction()
 {
@@ -593,7 +605,7 @@ void idleExitFunction()
 
 /*******************************************************************************
  * FSM state Name        : On 
- * Description           : the pump will be turned on until the temperature reaches the target.
+ * Description           : the pump and the boiler will be turned on until the temperature reaches the target.
                             It then transitions to the off state.
  * Status of the pump    : on
 *******************************************************************************/
@@ -603,6 +615,7 @@ void onEnterFunction()
   setState(STATE_ON, true);
 
   turnOnRelay(1);
+  turnOnRelay(2);
 }
 void onUpdateFunction()
 {
@@ -623,6 +636,7 @@ void onUpdateFunction()
 void onExitFunction()
 {
   turnOffRelay(1);
+  turnOffRelay(2);
 }
 
 /*******************************************************************************
@@ -933,7 +947,9 @@ int triggerRelay(String command)
           Serial.println("Turning on relay");
           turnOnRelayForSomeMinutes(relayNumber, timeOn);
           returnValue = 0;
-        } else {
+        }
+        else
+        {
           Serial.println("Turning on relay");
           relayController.turnOnRelay(relayNumber);
         }
