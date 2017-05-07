@@ -70,7 +70,7 @@ onState -up-> offState: setOnOff("off")
 #include "FiniteStateMachine.h"
 
 #define APP_NAME "poolAndBoilerController"
-String VERSION = "Version 0.01";
+String VERSION = "Version 0.02";
 
 SYSTEM_MODE(AUTOMATIC);
 
