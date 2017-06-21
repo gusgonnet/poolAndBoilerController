@@ -17,7 +17,7 @@
 // You do not have to comply with the license for elements of the material in the public domain or where your use is permitted by an applicable exception or limitation.
 // No warranties are given. The license may not give you all of the permissions necessary for your intended use. For example, other rights such as publicity, privacy, or moral rights may limit how you use the material.
 //
-// github: https://github.com/gusgonnet/poolAndBoilerController
+// github: https://github.com/gusgonnet/poolAndBurnerController
 //
 // Free for personal use.
 //
@@ -64,13 +64,12 @@ onState -up-> offState: setOnOff("off")
 #include "Particle-OneWire.h"
 #include "DS18B20.h"
 #include "NCD4Relay.h"
-
-#include "application.h"
 #include "elapsedMillis.h"
 #include "FiniteStateMachine.h"
+#include "PietteTech_DHT.h"
 
 #define APP_NAME "poolAndBoilerController"
-String VERSION = "Version 0.02";
+String VERSION = "Version 0.03";
 
 SYSTEM_MODE(AUTOMATIC);
 
@@ -79,6 +78,8 @@ SYSTEM_MODE(AUTOMATIC);
        * Initial version
  * changes in version 0.02:
        * logic is working now
+ * changes in version 0.03:
+       * adding DHT22 sensor for sensing ambient temperature and humidity on D5
 *******************************************************************************/
 
 // Argentina time zone GMT-3
@@ -170,6 +171,19 @@ DS18B20 ds18b20_3 = DS18B20(D4);
 double temperatureCurrent3 = INVALID;
 
 /*******************************************************************************
+ DHT sensor for ambient sensing
+*******************************************************************************/
+#define DHTTYPE  DHT22                // Sensor type DHT11/21/22/AM2301/AM2302
+#define DHTPIN   5                    // Digital pin for communications
+void dht_wrapper(); // must be declared before the lib initialization
+PietteTech_DHT DHT(DHTPIN, DHTTYPE, dht_wrapper);
+bool bDHTstarted;       // flag to indicate we started acquisition
+double temperatureCurrent4 = INVALID;
+double humidityCurrent4 = INVALID;
+// This wrapper is in charge of calling the DHT sensor lib
+void dht_wrapper() { DHT.isrCallback(); }
+
+/*******************************************************************************
  relay variables
 *******************************************************************************/
 NCD4Relay relayController;
@@ -236,6 +250,9 @@ void setup()
    cloud variables and functions for the ambient temperature
   *******************************************************************************/
   Particle.variable("tempAmbient", temperatureCurrent3);
+
+  Particle.variable("tempAmbieDHT", temperatureCurrent4);
+  Particle.variable("humiAmbieDHT", humidityCurrent4);
 
   Time.zone(TIME_ZONE);
 
@@ -414,9 +431,14 @@ void readTemperature()
 
   getTemp();
   getTempAmb();
+  getTempAmbDHT();
 
-  Particle.publish(APP_NAME, "Temperature: " + double2string(temperatureCurrent), PRIVATE);
-  Particle.publish(APP_NAME, "Temperature Amb: " + double2string(temperatureCurrent3), PRIVATE);
+  Particle.publish(APP_NAME, "Pool: " + double2string(temperatureCurrent) \
+    + ", TAmb: " + double2string(temperatureCurrent3) \
+    + ", TAmbDHT: " + double2string(temperatureCurrent4) \
+    + ", HAmbDHT: " + double2string(humidityCurrent4) \
+    , PRIVATE);
+
 }
 
 /*******************************************************************************
@@ -502,6 +524,47 @@ void getTempAmb()
       temperatureCurrent3 = temperatureLocal;
     }
   }
+}
+
+/*******************************************************************************
+ * Function Name  : getTempAmbDHT
+ * Description    : reads the temperature of the DHT22 sensor
+ * Return         : none
+ *******************************************************************************/
+void getTempAmbDHT() {
+
+  // start the sample
+  if (!bDHTstarted) {
+    DHT.acquireAndWait(5);
+    bDHTstarted = true;
+  }
+
+  //still acquiring sample? go away and come back later
+  if (DHT.acquiring()) {
+    return;
+  }
+
+  //I observed my dht22 measuring below 0 from time to time, so let's discard that sample
+  if ( DHT.getCelsius() < 0 ) {
+    //reset the sample flag so we can take another
+    bDHTstarted = false;
+    return;
+  }
+
+    if (useFahrenheit)
+    {
+      temperatureCurrent4 = DHT.getFahrenheit();
+    }
+    else
+    {
+      temperatureCurrent4 = DHT.getCelsius();
+    }
+
+  humidityCurrent4 = DHT.getHumidity();
+
+  //reset the sample flag so we can take another
+  bDHTstarted = false;
+
 }
 
 /*******************************************************************************
