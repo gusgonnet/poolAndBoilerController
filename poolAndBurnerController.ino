@@ -79,6 +79,7 @@ SYSTEM_MODE(AUTOMATIC);
  * changes in version 0.02:
        * logic is working now
  * changes in version 0.03:
+       * Particle build share link: https://go.particle.io/shared_apps/5aea76f55ae4df2ecd000e57
        * adding DHT22 sensor for sensing ambient temperature and humidity on D5
 *******************************************************************************/
 
